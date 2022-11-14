@@ -5,6 +5,7 @@ module.exports = (mongoose) => {
       lastName: String,
       email: String,
       password: String,
+      otp: String,
     },
     { timestamps: true }
   );

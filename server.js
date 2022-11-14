@@ -37,7 +37,11 @@ db.mongoose
 // set port, listen for requests
 const PORT = process.env.PORT || 8080;
 
-require("./app/routes/tutorial.routes")(app);
+// require("./app/routes/tutorial.routes")(app);
+// require("./app/routes/passwordReset")(app);
+
+app.use("/api/tutorials", require("./app/routes/tutorial.routes"));
+app.use("/api/password-reset", require("./app/routes/passwordReset"));
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`);

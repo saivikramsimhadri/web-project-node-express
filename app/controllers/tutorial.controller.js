@@ -1,7 +1,11 @@
 const db = require("../models");
+const { encrypt } = require("../services/crypto");
+const { generateOTP } = require("../services/OTP");
+const { sendMail } = require("../services/MAIL");
+
 const Tutorial = db.tutorials;
 
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
   console.log("hello>>>>", req.body);
   // Validate request
   if (!req.body.firstName) {
@@ -26,44 +30,54 @@ exports.create = (req, res) => {
   console.log(">>>1");
   var condition = requesteml ? { email: requesteml } : {};
   console.log(">>>2", condition);
+  try {
+    const data = await Tutorial.find(condition);
 
-  Tutorial.find(condition)
-    .then((data) => {
-      if (data[0]?.email === requesteml) {
-        res.status(400).send({ message: "Email already exists" });
-      } else {
-        // Create a Tutorial
-        const tutorial = new Tutorial({
-          firstName: req.body.firstName,
-          lastName: req.body.lastName,
-          email: req.body.email,
-          password: req.body.password,
-
-          //   description: req.body.description,
-          //   published: req.body.published ? req.body.published : false
-        });
-
-        tutorial
-          .save(tutorial)
-          .then((data) => {
-            res.send(data);
-            ``;
-          })
-          .catch((err) => {
-            res.status(500).send({
-              message:
-                err.message ||
-                "Some error occurred while creating the Tutorial.",
-            });
-          });
-      }
-    })
-    .catch((err) => {
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while retrieving tutorials.",
-      });
+    if (data[0]?.email === requesteml) {
+      res.status(400).send({ message: "Email already exists" });
+    } else {
+      const data = await createUser(req);
+      res.send(data);
+    }
+  } catch (error) {
+    res.status(500).send({
+      message: err.message || "Some error occurred while retrieving tutorials.",
     });
+  }
+};
+
+const createUser = async (req) => {
+  const hashedPassword = await encrypt(req.body.password);
+  const otpGenerated = generateOTP();
+  const email = req.body.email;
+  // Create a Tutorial
+  const tutorial = new Tutorial({
+    firstName: req.body.firstName,
+    lastName: req.body.lastName,
+    email,
+    password: hashedPassword,
+    otp: otpGenerated,
+  });
+
+  const newUser = tutorial.save(tutorial);
+  // const newUser = await User.create({
+  //   email,
+  //   password: hashedPassword,
+  //   otp: otpGenerated,
+  // });
+  if (!newUser) {
+    return [false, "Unable to sign you up"];
+  }
+  try {
+    await sendMail({
+      to: email,
+      OTP: otpGenerated,
+    });
+    return [true, newUser];
+  } catch (error) {
+    console.log({ error });
+    return [false, "Unable to send email, Please try again later", error];
+  }
 };
 
 // Retrieve all Tutorials/ find by title from the database:
